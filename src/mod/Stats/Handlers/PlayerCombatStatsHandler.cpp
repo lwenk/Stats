@@ -1,5 +1,9 @@
 #include "mod/Stats/Handlers/PlayerStatsHandlers.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+
 #include <ll/api/service/Bedrock.h>
 #include <mc/world/actor/Actor.h>
 #include <mc/world/actor/ActorDamageSource.h>
@@ -18,6 +22,25 @@
 #include "mod/Stats/Stats.h"
 
 namespace stats::handler {
+namespace {
+
+constexpr double MaxUint64Exclusive = 18446744073709551616.0;
+
+float positiveFinite(float value) {
+    return std::isfinite(value) && value > 0.0f ? value : 0.0f;
+}
+
+uint64_t toDamageStatValue(float damage) {
+    auto const scaled = static_cast<double>(positiveFinite(damage)) * 10.0;
+    if (!std::isfinite(scaled) || scaled >= MaxUint64Exclusive) return 0;
+    return static_cast<uint64_t>(scaled);
+}
+
+void addDamageStat(PlayerStats& stats, CustomType type, float damage) {
+    stats.addCustomStats(type, toDamageStatValue(damage));
+}
+
+} // namespace
 
 void onPlayerDied(Player& player, ActorDamageSource const& source) {
     auto  uuid        = player.getUuid();
@@ -50,18 +73,19 @@ void onPlayerTakenDamage(Player* player, float finalDamage) {
     auto* playerStats = findPlayerStats(uuid);
     if (!playerStats) return;
 
-    auto  health              = player->getHealth();
+    auto  health              = positiveFinite(player->getHealth());
     auto  absorptionAttribute = player->getAttribute(SharedAttributes::ABSORPTION());
-    auto  absorption          = absorptionAttribute.mPtr ? absorptionAttribute.mPtr->mCurrentValue : 0.0f;
-    float damageTaken     = finalDamage > 0 ? finalDamage : -finalDamage;
+    auto  absorption          = absorptionAttribute.mPtr ? positiveFinite(absorptionAttribute.mPtr->mCurrentValue) : 0.0f;
+    float damageTaken     = positiveFinite(finalDamage);
+    if (damageTaken == 0.0f) return;
     float damageAbsorbed  = 0;
     if (absorption > 0) {
-        damageAbsorbed  = damageTaken < absorption ? damageTaken : absorption;
+        damageAbsorbed  = std::min(damageTaken, absorption);
         damageTaken    -= damageAbsorbed;
     }
-    damageTaken            = damageTaken < health ? damageTaken : health;
-    playerStats->addCustomStats(CustomType::damage_absorbed, static_cast<int>(damageAbsorbed * 10));
-    playerStats->addCustomStats(CustomType::damage_taken, static_cast<int>(damageTaken * 10));
+    damageTaken = std::min(damageTaken, health);
+    addDamageStat(*playerStats, CustomType::damage_absorbed, damageAbsorbed);
+    addDamageStat(*playerStats, CustomType::damage_taken, damageTaken);
 }
 
 void onPlayerDealtDamage(Mob* mob, Player* player, float finalDamage) {
@@ -69,34 +93,33 @@ void onPlayerDealtDamage(Mob* mob, Player* player, float finalDamage) {
     auto* playerStats = findPlayerStats(uuid);
     if (!playerStats) return;
 
-    auto  health              = mob->getHealth();
+    auto  health              = positiveFinite(mob->getHealth());
     auto  absorptionAttribute = mob->getAttribute(SharedAttributes::ABSORPTION());
-    auto  absorption          = absorptionAttribute.mPtr ? absorptionAttribute.mPtr->mCurrentValue : 0.0f;
-    float damageTaken     = finalDamage > 0 ? finalDamage : -finalDamage;
+    auto  absorption          = absorptionAttribute.mPtr ? positiveFinite(absorptionAttribute.mPtr->mCurrentValue) : 0.0f;
+    float damageTaken     = positiveFinite(finalDamage);
+    if (damageTaken == 0.0f) return;
     float damageAbsorbed  = 0;
     if (absorption > 0) {
-        damageAbsorbed  = damageTaken < absorption ? damageTaken : absorption;
+        damageAbsorbed  = std::min(damageTaken, absorption);
         damageTaken    -= damageAbsorbed;
     }
-    damageTaken            = damageTaken < health ? damageTaken : health;
-    playerStats->addCustomStats(CustomType::damage_dealt_absorbed, static_cast<int>(damageAbsorbed * 10));
-    playerStats->addCustomStats(CustomType::damage_dealt, static_cast<int>(damageTaken * 10));
+    damageTaken = std::min(damageTaken, health);
+    addDamageStat(*playerStats, CustomType::damage_dealt_absorbed, damageAbsorbed);
+    addDamageStat(*playerStats, CustomType::damage_dealt, damageTaken);
 }
 
 void onPlayerResistedDamage(Player* player, float resistanceDamage) {
     auto* playerStats = findPlayerStats(player->getUuid());
     if (!playerStats) return;
 
-    resistanceDamage = resistanceDamage > 0 ? resistanceDamage : -resistanceDamage;
-    playerStats->addCustomStats(CustomType::damage_resisted, static_cast<int>(resistanceDamage * 10));
+    addDamageStat(*playerStats, CustomType::damage_resisted, resistanceDamage);
 }
 
 void onPlayerDealtResistedDamage(Player* player, float resistanceDamage) {
     auto* playerStats = findPlayerStats(player->getUuid());
     if (!playerStats) return;
 
-    resistanceDamage = resistanceDamage > 0 ? resistanceDamage : -resistanceDamage;
-    playerStats->addCustomStats(CustomType::damage_dealt_resisted, static_cast<int>(resistanceDamage * 10));
+    addDamageStat(*playerStats, CustomType::damage_dealt_resisted, resistanceDamage);
 }
 
 void onPlayerEffectAdded(Player* player, MobEffectInstance const& effect) {
@@ -116,7 +139,7 @@ void onPlayerBlockUsingShield(Player* player, float damage) {
     auto  uuid        = player->getUuid();
     auto* playerStats = findPlayerStats(uuid);
     if (!playerStats) return;
-    playerStats->addCustomStats(CustomType::damage_blocked_by_shield, static_cast<int>(damage * 10));
+    addDamageStat(*playerStats, CustomType::damage_blocked_by_shield, damage);
 }
 
 } // namespace stats::handler

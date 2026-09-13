@@ -14,7 +14,7 @@ namespace stats::hook::player {
 
 LL_TYPE_INSTANCE_HOOK(
     PlayerAuthInputHook,
-    HookPriority::Normal,
+    HookPriority::Low,
     ServerNetworkHandler,
     &ServerNetworkHandler::$handle,
     void,

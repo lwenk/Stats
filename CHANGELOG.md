@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [未发布]
 
+## [0.10.1] - 2026-09-13
+
+### 修复
+
+- 修复骑乘状态判断在 LeviLamina 26.32 中失效，导致载具移动距离无法统计的问题。
+- 修复异常伤害值、无效客户端移动数据或计数溢出可能导致统计数值异常增大的问题。
+- 修复抗性、吸收和盾牌伤害统计的边界计算。
+- 修复花盆交互统计组件获取失败，以及村民交易统计中的空指针问题。
+
 ## [0.10.0] - 2026-09-12
 
 ## 新增
@@ -252,7 +261,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 统计玩家与床交互次数
 - 统计玩家与部分方块交互次数
 
-[未发布]: https://github.com/LeafKnife/Stats/compare/v0.10.0...dev
+[未发布]: https://github.com/LeafKnife/Stats/compare/v0.10.1...dev
+[0.10.1]: https://github.com/LeafKnife/Stats/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/LeafKnife/Stats/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/LeafKnife/Stats/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/LeafKnife/Stats/compare/v0.8.0...v0.8.3

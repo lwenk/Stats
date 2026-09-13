@@ -20,11 +20,6 @@
 #include <mc/world/actor/ActorType.h>
 #include <mc/world/actor/Mob.h>
 #include <mc/world/actor/player/Player.h>
-#include <mc/world/attribute/AttributeInstance.h>
-#include <mc/world/attribute/AttributeInstanceConstRef.h>
-#include <mc/world/attribute/SharedAttributes.h>
-#include <mc/world/effect/MobEffect.h>
-#include <mc/world/effect/MobEffectInstance.h>
 #include <mc/world/level/Level.h>
 
 #include "mod/Events/BlockEventHandle.h"
@@ -117,23 +112,6 @@ void listenEvents() {
             auto&       victim = event.self();
             auto const& source = event.source();
             auto const  damage = event.damage();
-            auto const  absorptionAttribute = victim.getAttribute(SharedAttributes::ABSORPTION());
-            auto const  absorption = absorptionAttribute.mPtr ? absorptionAttribute.mPtr->mCurrentValue : 0.0f;
-            auto const* resistance = victim.getEffect(*MobEffect::DAMAGE_RESISTANCE());
-
-            // getLogger().info(
-            //     "[ActorHurt] victim={} tag='{}' final_damage={:.3f} health_before={} absorption_before={:.3f} "
-            //     "resistance_amplifier={} resistance_applies={} entity_source={} child_source={}",
-            //     victim.getTypeName(),
-            //     victim.getNameTag(),
-            //     damage,
-            //     victim.getHealth(),
-            //     absorption,
-            //     resistance ? resistance->mAmplifier : -1,
-            //     source.isReducedByResistanceEffect(),
-            //     source.isEntitySource(),
-            //     source.isChildEntitySource()
-            // );
 
             if (victim.isType(ActorType::Player)) {
                 if (auto* player = victim.getEntityContext().getWeakRef().tryUnwrap<Player>().as_ptr()) {
@@ -149,13 +127,6 @@ void listenEvents() {
 
             auto* attacker = level->fetchEntity(source.getDamagingEntityUniqueID(), false);
             if (!attacker || !attacker->isType(ActorType::Player)) return;
-
-            // getLogger().info(
-            //     "[ActorHurt] attacker={} victim={} damage={:.3f}",
-            //     attacker->getTypeName(),
-            //     victim.getTypeName(),
-            //     damage
-            // );
 
             auto* player = attacker->getEntityContext().getWeakRef().tryUnwrap<Player>().as_ptr();
             auto* mob    = victim.getEntityContext().getWeakRef().tryUnwrap<Mob>().as_ptr();

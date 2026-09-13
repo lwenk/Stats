@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <string_view>
 #include <unordered_set>
 
@@ -107,6 +108,19 @@ int runStatsDataTests() {
     auto const* minedMap = data.getMap(StatsType::mined);
     if (!minedMap || minedMap->at("minecraft:stone") != 2) {
         std::cerr << "FAILED: non-custom stats still use map storage\n";
+        ++failures;
+    }
+
+    data.custom.set(stats::CustomType::jump, std::numeric_limits<uint64_t>::max() - 1);
+    data.custom.add(stats::CustomType::jump, 2);
+    if (data.custom.asMap().at("minecraft:jump") != std::numeric_limits<uint64_t>::max()) {
+        std::cerr << "FAILED: custom stats saturate instead of wrapping\n";
+        ++failures;
+    }
+
+    data.add(StatsType::mined, "minecraft:stone", std::numeric_limits<uint64_t>::max());
+    if (data.getMap(StatsType::mined)->at("minecraft:stone") != std::numeric_limits<uint64_t>::max()) {
+        std::cerr << "FAILED: category stats saturate instead of wrapping\n";
         ++failures;
     }
 

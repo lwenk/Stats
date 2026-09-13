@@ -64,6 +64,20 @@ void testRequiredFields() {
     expectEqual(threw, true, "rejects missing required fields");
 }
 
+void testSanitizesNegativeCounterValues() {
+    stats::PlayerInfo info{"uuid-value", "xuid-value", "PlayerName"};
+    stats::StatsData  data;
+    auto              json = nlohmann::json::parse(stats::encodeStatsJson(info, data));
+    json["minecraft:custom"]["minecraft:jump"] = -1;
+
+    auto const decoded = stats::decodeStatsJson(json.dump());
+    expectEqual(
+        decoded.data.getMap(StatsType::custom)->at("minecraft:jump"),
+        uint64_t{0},
+        "sanitizes negative counter values"
+    );
+}
+
 void testPageEncoding() {
     stats::query::StatsEntries entries{
         {"Alice", 9},
@@ -86,6 +100,7 @@ void testPageEncoding() {
 int runStatsJsonCodecTests() {
     testRoundTrip();
     testRequiredFields();
+    testSanitizesNegativeCounterValues();
     testPageEncoding();
     return failures;
 }
