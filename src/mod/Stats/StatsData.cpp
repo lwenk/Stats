@@ -1,8 +1,22 @@
 #include "mod/Stats/StatsData.h"
 
+#include <limits>
 #include <utility>
 
 namespace stats {
+namespace {
+
+uint64_t saturatingAdd(uint64_t current, uint64_t value) {
+    return value > std::numeric_limits<uint64_t>::max() - current ? std::numeric_limits<uint64_t>::max()
+                                                                  : current + value;
+}
+
+void addToMap(StatsDataMap& values, std::string const& key, uint64_t value) {
+    auto& current = values[key];
+    current       = saturatingAdd(current, value);
+}
+
+} // namespace
 
 void CustomStatsData::load(StatsDataMap values) {
     mValues.fill(0);
@@ -21,7 +35,7 @@ void CustomStatsData::load(StatsDataMap values) {
 
 void CustomStatsData::add(CustomType type, uint64_t value) {
     auto const index   = static_cast<std::size_t>(type);
-    mValues.at(index) += value;
+    mValues.at(index)  = saturatingAdd(mValues.at(index), value);
     mPresent.set(index);
     mSnapshotDirty = true;
 }
@@ -31,7 +45,7 @@ void CustomStatsData::add(std::string const& key, uint64_t value) {
         if (CustomTypeMap[index].second != key) continue;
         return add(CustomTypeMap[index].first, value);
     }
-    mUnknown[key]  += value;
+    addToMap(mUnknown, key, value);
     mSnapshotDirty  = true;
 }
 
@@ -93,28 +107,28 @@ void StatsData::add(StatsType type, std::string const& key, uint64_t value) {
     case StatsType::custom:
         return custom.add(key, value);
     case StatsType::mined:
-        mined[key] += value;
+        addToMap(mined, key, value);
         return;
     case StatsType::broken:
-        broken[key] += value;
+        addToMap(broken, key, value);
         return;
     case StatsType::crafted:
-        crafted[key] += value;
+        addToMap(crafted, key, value);
         return;
     case StatsType::used:
-        used[key] += value;
+        addToMap(used, key, value);
         return;
     case StatsType::picked_up:
-        picked_up[key] += value;
+        addToMap(picked_up, key, value);
         return;
     case StatsType::dropped:
-        dropped[key] += value;
+        addToMap(dropped, key, value);
         return;
     case StatsType::killed:
-        killed[key] += value;
+        addToMap(killed, key, value);
         return;
     case StatsType::killed_by:
-        killed_by[key] += value;
+        addToMap(killed_by, key, value);
         return;
     case StatsType::count:
         return;

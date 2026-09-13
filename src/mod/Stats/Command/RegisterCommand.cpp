@@ -14,7 +14,6 @@
 #include <mc/world/actor/Actor.h>
 #include <mc/world/actor/player/Player.h>
 
-
 #include "mod/Stats/Form/Form.h"
 #include "mod/Stats/Stats.h"
 #include "mod/Stats/StatsData.h"

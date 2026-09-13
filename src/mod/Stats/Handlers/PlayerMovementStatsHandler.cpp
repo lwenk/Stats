@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <cstddef>
+#include <limits>
+#include <optional>
 
 #include <ll/api/service/Bedrock.h>
 #include <mc/deps/core/math/Vec3.h>
@@ -16,6 +18,23 @@
 #include "mod/Stats/Stats.h"
 
 namespace stats::handler {
+namespace {
+
+// A player normally moves well below this in a single auth-input packet. Larger
+// deltas are teleports or invalid client input and must not become statistics.
+constexpr float MaxDistancePerAuthInput = 10.0f;
+
+std::optional<uint64_t> toCentimeters(float distance) {
+    if (!std::isfinite(distance) || distance <= 0.0f || distance > MaxDistancePerAuthInput) return std::nullopt;
+    return static_cast<uint64_t>(std::floor(static_cast<double>(distance) * 100.0));
+}
+
+uint64_t saturatingAdd(uint64_t current, uint64_t value) {
+    return value > std::numeric_limits<uint64_t>::max() - current ? std::numeric_limits<uint64_t>::max()
+                                                                  : current + value;
+}
+
+} // namespace
 
 void onPlayerStartSneaking(Player& player) {
     auto  uuid        = player.getUuid();
@@ -45,10 +64,11 @@ void onPlayerStopSprinting(Player& player) {
     playerStats->mDistanceCache.isSprinting = false;
 }
 
-void onPlayerStartRiding(mce::UUID uuid) {
-    auto* playerStats = findPlayerStats(uuid);
+void onPlayerStartRiding(Player& player) {
+    auto* playerStats = findPlayerStats(player.getUuid());
     if (!playerStats) return;
     playerStats->mDistanceCache.ride = 0;
+    playerStats->mLastPos            = player.getPosition();
 }
 
 void onPlayerStopRiding(mce::UUID uuid, Actor* vehicle) {
@@ -103,42 +123,46 @@ void onPlayerAuthInput(ServerPlayer& player, PlayerAuthInputPacket const& packet
         return;
     }
     if (player.isRiding(nullptr)) {
-        auto const value = static_cast<uint64_t>(std::floor(position.distanceTo(playerStats->mLastPos) * 100));
-        playerStats->mDistanceCache.ride += value;
-        playerStats->mLastPos             = position;
+        if (auto const value = toCentimeters(position.distanceTo(playerStats->mLastPos))) {
+            playerStats->mDistanceCache.ride = saturatingAdd(playerStats->mDistanceCache.ride, *value);
+        }
+        playerStats->mLastPos = position;
     } else {
         // Some dismount paths may not emit the stop-riding callback.
         playerStats->mDistanceCache.ride = 0;
 
         if (player.isInWaterOrRain()) {
-            auto const value = static_cast<uint64_t>(std::floor(posDelta.length() * 100));
-            if (player.isSwimming()) {
-                playerStats->addCustomStats(CustomType::swim_one_cm, value);
-            } else if (player.isImmersedInWater()) {
-                playerStats->addCustomStats(CustomType::walk_on_water_one_cm, value);
-            } else {
-                playerStats->addCustomStats(CustomType::walk_under_water_one_cm, value);
+            if (auto const value = toCentimeters(posDelta.length()); value && player.isSwimming()) {
+                playerStats->addCustomStats(CustomType::swim_one_cm, *value);
+            } else if (value && player.isImmersedInWater()) {
+                playerStats->addCustomStats(CustomType::walk_on_water_one_cm, *value);
+            } else if (value) {
+                playerStats->addCustomStats(CustomType::walk_under_water_one_cm, *value);
             }
         } else if (player.isFlying()) {
-            auto const value = static_cast<uint64_t>(std::floor(posDelta.length() * 100));
-            playerStats->addCustomStats(CustomType::fly_one_cm, value);
+            if (auto const value = toCentimeters(posDelta.length())) {
+                playerStats->addCustomStats(CustomType::fly_one_cm, *value);
+            }
         } else if (player.isOnGround()) {
             auto const posOffset = Vec3{0, -0.0784, 0};
-            auto const value     = static_cast<uint64_t>(std::floor(posDelta.distanceTo(posOffset) * 100));
-            if (playerStats->mDistanceCache.isSneaking) {
-                playerStats->mDistanceCache.sneak += value;
-            } else if (playerStats->mDistanceCache.isSprinting) {
-                playerStats->addCustomStats(CustomType::sprint_one_cm, value);
-            } else {
-                playerStats->addCustomStats(CustomType::walk_one_cm, value);
+            if (auto const value = toCentimeters(posDelta.distanceTo(posOffset))) {
+                if (playerStats->mDistanceCache.isSneaking) {
+                    playerStats->mDistanceCache.sneak = saturatingAdd(playerStats->mDistanceCache.sneak, *value);
+                } else if (playerStats->mDistanceCache.isSprinting) {
+                    playerStats->addCustomStats(CustomType::sprint_one_cm, *value);
+                } else {
+                    playerStats->addCustomStats(CustomType::walk_one_cm, *value);
+                }
             }
         } else if (player.onClimbableBlock()) {
             auto const valueY = posDelta.y + 0.0784;
-            auto const value  = static_cast<uint64_t>(std::floor(valueY > 0 ? valueY * 100 : 0));
-            playerStats->addCustomStats(CustomType::climb_one_cm, value);
+            if (auto const value = toCentimeters(valueY)) {
+                playerStats->addCustomStats(CustomType::climb_one_cm, *value);
+            }
         } else if (playerStats->mDistanceCache.isGliding) {
-            auto const value = static_cast<uint64_t>(std::floor(posDelta.length() * 100));
-            playerStats->addCustomStats(CustomType::aviate_one_cm, value);
+            if (auto const value = toCentimeters(posDelta.length())) {
+                playerStats->addCustomStats(CustomType::aviate_one_cm, *value);
+            }
         }
     }
     updateGlidingState();

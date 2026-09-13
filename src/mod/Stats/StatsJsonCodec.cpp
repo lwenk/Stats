@@ -1,8 +1,34 @@
 #include "mod/Stats/StatsJsonCodec.h"
 
+#include <cstdint>
+#include <stdexcept>
+#include <string>
+
 #include <nlohmann/json.hpp>
 
 namespace stats {
+namespace {
+
+StatsDataMap decodeStatsDataMap(nlohmann::json const& document, std::string const& category) {
+    auto const& values = document.at(category);
+    if (!values.is_object()) throw std::invalid_argument("Statistics category must be an object: " + category);
+
+    StatsDataMap decoded;
+    decoded.reserve(values.size());
+    for (auto const& [key, value] : values.items()) {
+        if (value.is_number_unsigned()) {
+            decoded.emplace(key, value.get<uint64_t>());
+            continue;
+        }
+        if (!value.is_number_integer()) throw std::invalid_argument("Statistic value must be an integer: " + key);
+
+        auto const signedValue = value.get<int64_t>();
+        decoded.emplace(key, signedValue < 0 ? 0 : static_cast<uint64_t>(signedValue));
+    }
+    return decoded;
+}
+
+} // namespace
 
 std::string encodeStatsJson(PlayerInfo const& info, StatsData const& data) {
     nlohmann::json json = {
@@ -25,7 +51,7 @@ DecodedStats decodeStatsJson(std::string_view source) {
     playerInfo.at("name").get_to(decoded.info.name);
     for (auto const& descriptor : StatsSchema) {
         auto const key = std::string(descriptor.key);
-        decoded.data.loadMap(descriptor.type, json.at(key).get<StatsDataMap>());
+        decoded.data.loadMap(descriptor.type, decodeStatsDataMap(json, key));
     }
     return decoded;
 }

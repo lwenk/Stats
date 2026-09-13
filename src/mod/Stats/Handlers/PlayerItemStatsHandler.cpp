@@ -105,7 +105,8 @@ void onPlayerChangeContainerWith(
     }
     if (slot != 2 || oldItem.isNull()) return;
     if (oldItem.mCount > newItem.mCount) {
-        playerStats->addStats(StatsType::crafted, oldItem.getTypeName());
+        auto const extracted = static_cast<uint64_t>(oldItem.mCount) - static_cast<uint64_t>(newItem.mCount);
+        playerStats->addStats(StatsType::crafted, oldItem.getTypeName(), extracted);
     }
 }
 
