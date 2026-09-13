@@ -122,7 +122,7 @@ void onPlayerAuthInput(ServerPlayer& player, PlayerAuthInputPacket const& packet
         updateGlidingState();
         return;
     }
-    if (player.isRiding(nullptr)) {
+    if (player.getVehicle() != nullptr) {
         if (auto const value = toCentimeters(position.distanceTo(playerStats->mLastPos))) {
             playerStats->mDistanceCache.ride = saturatingAdd(playerStats->mDistanceCache.ride, *value);
         }
