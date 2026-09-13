@@ -1,5 +1,6 @@
 #include "mod/Events/BlockEventHandle.h"
 
+#include <cmath>
 #include <cstdint>
 #include <ll/api/service/Bedrock.h>
 #include <mc/deps/ecs/WeakEntityRef.h>
@@ -125,12 +126,15 @@ void onProjectileHitTargetBlock(Actor const& projectile) {
 }
 void onFallOn(Actor& actor, float fallDistance) {
     if (!actor.isType(::ActorType::Player)) return;
+    if (!std::isfinite(fallDistance) || fallDistance < 1.0f) return;
     Player* player = actor.getEntityContext().getWeakRef().tryUnwrap<Player>();
     if (!player) return;
     auto  uuid        = player->getUuid();
     auto* playerStats = findPlayerStats(uuid);
     if (!playerStats) return;
-    uint64_t value = static_cast<uint64_t>(fallDistance * 100);
+    auto const centimeters = static_cast<double>(fallDistance) * 100.0;
+    if (centimeters >= 18446744073709551616.0) return;
+    auto const value = static_cast<uint64_t>(std::floor(centimeters));
     playerStats->addCustomStats(CustomType::fall_one_cm, value);
 }
 } // namespace block

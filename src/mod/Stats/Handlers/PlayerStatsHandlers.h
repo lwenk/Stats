@@ -26,7 +26,7 @@ void onPlayerStartSneaking(Player& player);
 void onPlayerStopSneaking(Player& player);
 void onPlayerStartSprinting(Player& player);
 void onPlayerStopSprinting(Player& player);
-void onPlayerStartRiding(mce::UUID uuid);
+void onPlayerStartRiding(Player& player);
 void onPlayerStopRiding(mce::UUID uuid, Actor* vehicle);
 void onPlayerAuthInput(ServerPlayer& player, PlayerAuthInputPacket const& packet);
 void onPlayerPickUpItem(Player& player, ItemStack& item);

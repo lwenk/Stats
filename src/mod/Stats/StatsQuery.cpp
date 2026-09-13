@@ -1,6 +1,7 @@
 #include "mod/Stats/StatsQuery.h"
 
 #include <algorithm>
+#include <limits>
 #include <numeric>
 
 namespace stats::query {
@@ -12,6 +13,11 @@ bool valueOrder(StatsEntries::value_type const& left, StatsEntries::value_type c
 
 bool nameOrder(StatsEntries::value_type const& left, StatsEntries::value_type const& right) {
     return left.first < right.first;
+}
+
+uint64_t saturatingAdd(uint64_t current, uint64_t value) {
+    return value > std::numeric_limits<uint64_t>::max() - current ? std::numeric_limits<uint64_t>::max()
+                                                                  : current + value;
 }
 
 } // namespace
@@ -37,7 +43,7 @@ StatsPage RankBuilder::finishPage(std::size_t pageIndex, std::size_t pageSize) &
 uint64_t getValue(StatsDataMap const& stats, std::string const& key) {
     if (key.empty()) {
         return std::accumulate(stats.begin(), stats.end(), uint64_t{0}, [](uint64_t total, auto const& pair) {
-            return total + pair.second;
+            return saturatingAdd(total, pair.second);
         });
     }
 
@@ -54,7 +60,7 @@ StatsEntries buildDisplayEntries(StatsDataMap const& stats, StatsType type, uint
     bool hasPlayTime = false;
     for (auto const& [key, value] : stats) {
         if (type == StatsType::custom && key == playTimeKey) {
-            result.emplace_back(key, value + playTimeDelta);
+            result.emplace_back(key, saturatingAdd(value, playTimeDelta));
             hasPlayTime = true;
         } else {
             result.emplace_back(key, value);

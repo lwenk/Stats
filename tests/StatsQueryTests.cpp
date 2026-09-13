@@ -43,6 +43,18 @@ void testTotalsUse64Bits() {
     );
 }
 
+void testTotalsSaturate() {
+    stats::StatsDataMap values{
+        {"large", std::numeric_limits<uint64_t>::max()},
+        {"extra", 1                                    },
+    };
+    expectEqual(
+        stats::query::getValue(values, ""),
+        std::numeric_limits<uint64_t>::max(),
+        "saturates total instead of wrapping"
+    );
+}
+
 uint64_t findEntryValue(stats::query::StatsEntries const& entries, std::string const& key) {
     for (auto const& entry : entries) {
         if (entry.first == key) return entry.second;
@@ -148,6 +160,7 @@ int main() {
     failures += runStatsWriteQueueTests();
     testValueLookup();
     testTotalsUse64Bits();
+    testTotalsSaturate();
     testDisplayEntriesAddActivePlayTime();
     testDisplayEntriesInsertMissingPlayTime();
     testRanking();

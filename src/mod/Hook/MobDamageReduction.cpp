@@ -22,15 +22,13 @@ namespace stats::hook::mob {
 namespace {
 
 float getResistanceDamage(float damageBeforeResistance, int amplifier) {
-    auto const resistanceLevel = amplifier + 1;
-    if (resistanceLevel <= 0) return 0.0f;
-
-    auto const resistanceFactor = resistanceLevel >= 5 ? 0.0f : 1.0f - 0.2f * resistanceLevel;
-    return std::abs(damageBeforeResistance * (1.0f - resistanceFactor));
+    if (!std::isfinite(damageBeforeResistance) || damageBeforeResistance <= 0.0f || amplifier < 0) return 0.0f;
+    if (amplifier >= 4) return damageBeforeResistance;
+    return damageBeforeResistance * 0.2f * static_cast<float>(amplifier + 1);
 }
 
 void recordResistanceDamage(Mob& victim, ActorDamageSource const& source, float resistanceDamage) {
-    if (resistanceDamage <= 0.0f) return;
+    if (!std::isfinite(resistanceDamage) || resistanceDamage <= 0.0f) return;
 
     if (victim.isType(::ActorType::Player)) {
         if (auto* player = victim.getEntityContext().getWeakRef().tryUnwrap<Player>().as_ptr()) {
@@ -69,24 +67,6 @@ LL_TYPE_INSTANCE_HOOK(
     if (resistance && source.isReducedByResistanceEffect()) {
         auto const resistanceDamage = getResistanceDamage(afterEnchantReduction, resistance->mAmplifier);
         recordResistanceDamage(*thisFor<Mob>(), source, resistanceDamage);
-    }
-
-    // This is immediately before the inlined resistance calculation.
-    if (this->isType(::ActorType::Player)) {
-        // getLogger().info(
-        //     "[DEBUG-enchant-reduction] victim={} tag='{}' damage_after_armor={:.3f} "
-        //     "damage_before_resistance={:.3f} resistance_amplifier={} resistance_damage={:.3f} "
-        //     "resistance_applies={}",
-        //     this->getTypeName(),
-        //     this->getNameTag(),
-        //     damage,
-        //     afterEnchantReduction,
-        //     resistance ? resistance->mAmplifier : -1,
-        //     resistance && source.isReducedByResistanceEffect()
-        //         ? getResistanceDamage(afterEnchantReduction, resistance->mAmplifier)
-        //         : 0.0f,
-        //     source.isReducedByResistanceEffect()
-        // );
     }
 
     return afterEnchantReduction;

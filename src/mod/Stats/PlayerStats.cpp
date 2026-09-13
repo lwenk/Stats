@@ -38,6 +38,12 @@ void PlayerStats::startSneaking(uint64_t currentTick) {
 };
 void PlayerStats::stopSneaking(uint64_t currentTick) {
     if (mSneakingStartTick == 0) return;
+    if (currentTick < mSneakingStartTick) {
+        mSneakingStartTick        = 0;
+        mDistanceCache.isSneaking = false;
+        mDistanceCache.sneak      = 0;
+        return;
+    }
     auto record = currentTick - mSneakingStartTick;
     addCustomStats(CustomType::sneak_time, record);
     addCustomStats(CustomType::crouch_one_cm, mDistanceCache.sneak);

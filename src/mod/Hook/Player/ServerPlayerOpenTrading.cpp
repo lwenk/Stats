@@ -20,9 +20,11 @@ LL_TYPE_INSTANCE_HOOK(
 ) {
     origin(uniqueID, useNewScreen);
     Player* player = this;
-    auto actor = ll::service::getLevel()->fetchEntity(uniqueID, false);
+    auto level = ll::service::getLevel();
+    if (!level) return;
+    auto actor = level->fetchEntity(uniqueID, false);
 
-    if (!actor->isType(::ActorType::VillagerV2)) return;
+    if (!actor || !actor->isType(::ActorType::VillagerV2)) return;
     handler::onPlayerOpenTrading(player);
 }
 
